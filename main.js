@@ -1,5 +1,5 @@
-const GRID_SIZE = 32;
-const UPDATE_INTERVAL = 500;
+const GRID_SIZE = 128;
+const UPDATE_INTERVAL = 100;
 const WORKGROUP_SIZE = 8;
 
 const canvas = document.querySelector("canvas");
@@ -78,36 +78,36 @@ const pipelineLayout = device.createPipelineLayout({
 const cellShaderModule = device.createShaderModule({
 	label: "Cell shader",
 	code: `
-          struct VertexOutput {
-            @builtin(position) position: vec4f,
-            @location(0) cell: vec2f,
-          };
+  struct VertexOutput {
+      @builtin(position) position: vec4f,
+      @location(0) cell: vec2f,
+    };
 
-          @group(0) @binding(0) var<uniform> grid: vec2f;
-          @group(0) @binding(1) var<storage> cellState: array<u32>;
+    @group(0) @binding(0) var<uniform> grid: vec2f;
+    @group(0) @binding(1) var<storage> cellState: array<u32>;
 
-          @vertex
-          fn vertexMain(@location(0) position: vec2f,
-                        @builtin(instance_index) instance: u32) -> VertexOutput {
-            let i = f32(instance);
-            let cell = vec2f(i % grid.x, floor(i / grid.x));
-            let state = f32(cellState[instance]);
+    @vertex
+    fn vertexMain(@location(0) position: vec2f,
+                  @builtin(instance_index) instance: u32) -> VertexOutput {
+      var output: VertexOutput;
 
-            let cellOffset = cell / grid * 2;
-            let gridPos = (position*state+1) / grid - 1 + cellOffset;
+      let i = f32(instance);
+      let cell = vec2f(i % grid.x, floor(i / grid.x));
 
-            var output: VertexOutput;
-            output.position = vec4f(gridPos, 0, 1);
-            output.cell = cell;
-            return output;
-          }
+      let scale = f32(cellState[instance]);
+      let cellOffset = cell / grid * 2;
+      let gridPos = (position*scale+1) / grid - 1 + cellOffset;
 
-          @fragment
-          fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-            let c = input.cell / grid;
-            return vec4f(c, 1-c.x, 1);
-          }
-        `,
+      output.position = vec4f(gridPos, 0, 1);
+      output.cell = cell / grid;
+      return output;
+    }
+
+    @fragment
+    fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+      return vec4f(input.cell, 1.0 - input.cell.x, 1);
+    }
+  `,
 });
 
 // Create a pipeline that renders the cell.
@@ -285,7 +285,7 @@ function updateGrid() {
 			{
 				view: context.getCurrentTexture().createView(),
 				loadOp: "clear",
-				clearValue: { r: 0, g: 0, b: 0.4, a: 1.0 },
+				clearValue: { r: 0.11, g: 0.11, b: 0.11, a: 1.0 },
 				storeOp: "store",
 			},
 		],
